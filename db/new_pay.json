@@ -1,0 +1,106 @@
+{
+  "info": {
+    "name": "COS-MVP-API",
+    "_postman_id": "a3d2f86d-0f71-4f5f-9f8c-cos-mvp-0001",
+    "description": "COS 最小后端闭环接口集合：登录、商品、购物车、订单、支付",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "11. 订单-支付(模拟-旧接口)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"payType\": \"支付宝支付\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cosorder/pay/{{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["cosorder", "pay", "{{orderId}}"]
+        }
+      }
+    },
+    {
+      "name": "12. 支付-创建支付单(新)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderNo\": \"{{orderNo}}\",\n  \"userId\": {{uid}},\n  \"userTable\": \"{{userTable}}\",\n  \"payChannel\": \"mock\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cospay/create",
+          "host": ["{{baseUrl}}"],
+          "path": ["cospay", "create"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data) {",
+              "  if (json.data.payOrderNo) pm.environment.set('payOrderNo', json.data.payOrderNo);",
+              "  if (json.data.pay_order_no) pm.environment.set('payOrderNo', json.data.pay_order_no);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. 支付-查询状态(新)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Token", "value": "{{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/cospay/status?orderNo={{orderNo}}&userId={{uid}}&userTable={{userTable}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["cospay", "status"],
+          "query": [
+            { "key": "orderNo", "value": "{{orderNo}}" },
+            { "key": "userId", "value": "{{uid}}" },
+            { "key": "userTable", "value": "{{userTable}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "14. 支付-模拟成功(新)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/cospay/mock/success?payOrderNo={{payOrderNo}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["cospay", "mock", "success"],
+          "query": [
+            { "key": "payOrderNo", "value": "{{payOrderNo}}" }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/springboot0le12" },
+    { "key": "username", "value": "test1" },
+    { "key": "password", "value": "test1" },
+    { "key": "token", "value": "sso95zab5ma2r012eosdkl3huv3xt092" },
+    { "key": "cartId1", "value": "0" },
+    { "key": "cartId2", "value": "0" },
+    { "key": "orderId", "value": "0" }
+  ]
+}

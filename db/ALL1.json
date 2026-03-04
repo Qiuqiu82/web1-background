@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "COS-MVP-API-NEW1",
+    "_postman_id": "a3d2f86d-0f71-4f5f-9f8c-cos-mvp-0002",
+    "description": "COS 最小后端闭环接口集合：登录、商品、购物车、订单、支付",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. 用户登录-获取Token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/yonghu/login?username={{username}}&password={{password}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["yonghu", "login"],
+          "query": [
+            { "key": "username", "value": "{{username}}" },
+            { "key": "password", "value": "{{password}}" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.token) { pm.environment.set('token', json.token); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. 热卖COS服-列表",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/remaicosfu/list?page=1&limit=8",
+          "host": ["{{baseUrl}}"],
+          "path": ["remaicosfu", "list"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "8" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. 热卖COS服-详情",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/remaicosfu/detail/9001",
+          "host": ["{{baseUrl}}"],
+          "path": ["remaicosfu", "detail", "9001"]
+        }
+      }
+    },
+    {
+      "name": "4. 购物车-加入",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": 9001,\n  \"quantity\": 2,\n  \"specs\": \"M\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/coscart/add",
+          "host": ["{{baseUrl}}"],
+          "path": ["coscart", "add"]
+        }
+      }
+    },
+    {
+      "name": "5. 购物车-列表",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Token", "value": "{{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/coscart/list",
+          "host": ["{{baseUrl}}"],
+          "path": ["coscart", "list"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data && Array.isArray(json.data) && json.data.length > 0) {",
+              "  pm.environment.set('cartId1', json.data[0].id);",
+              "  if (json.data[1]) pm.environment.set('cartId2', json.data[1].id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. 购物车-更新数量",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": {{cartId1}},\n  \"quantity\": 3,\n  \"checked\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/coscart/update",
+          "host": ["{{baseUrl}}"],
+          "path": ["coscart", "update"]
+        }
+      }
+    },
+    {
+      "name": "7. 购物车-删除",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[{{cartId1}}]"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/coscart/delete",
+          "host": ["{{baseUrl}}"],
+          "path": ["coscart", "delete"]
+        }
+      }
+    },
+    {
+      "name": "8. 订单-提交",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cartIds\": [{{cartId1}}],\n  \"payType\": \"支付宝支付\",\n  \"contactName\": \"张三\",\n  \"contactPhone\": \"13800138000\",\n  \"address\": \"上海市浦东新区xx路xx号\",\n  \"remark\": \"尽量加急\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cosorder/submit",
+          "host": ["{{baseUrl}}"],
+          "path": ["cosorder", "submit"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data) {",
+              "  if (json.data.id) pm.environment.set('orderId', json.data.id);",
+              "  if (json.data.orderNo) pm.environment.set('orderNo', json.data.orderNo);",
+              "  if (json.data.order_no) pm.environment.set('orderNo', json.data.order_no);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. 订单-我的列表",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Token", "value": "{{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/cosorder/page",
+          "host": ["{{baseUrl}}"],
+          "path": ["cosorder", "page"]
+        }
+      }
+    },
+    {
+      "name": "10. 订单-详情",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Token", "value": "{{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/cosorder/detail/{{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["cosorder", "detail", "{{orderId}}"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data) {",
+              "  if (json.data.orderNo) pm.environment.set('orderNo', json.data.orderNo);",
+              "  if (json.data.order_no) pm.environment.set('orderNo', json.data.order_no);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. 订单-支付(模拟-旧接口)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"payType\": \"支付宝支付\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cosorder/pay/{{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["cosorder", "pay", "{{orderId}}"]
+        }
+      }
+    },
+    {
+      "name": "12. 支付-创建支付单(新)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderNo\": \"{{orderNo}}\",\n  \"userId\": {{uid}},\n  \"userTable\": \"{{userTable}}\",\n  \"payChannel\": \"mock\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cospay/create",
+          "host": ["{{baseUrl}}"],
+          "path": ["cospay", "create"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.data) {",
+              "  if (json.data.payOrderNo) pm.environment.set('payOrderNo', json.data.payOrderNo);",
+              "  if (json.data.pay_order_no) pm.environment.set('payOrderNo', json.data.pay_order_no);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. 支付-查询状态(新)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Token", "value": "{{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/cospay/status?orderNo={{orderNo}}&userId={{uid}}&userTable={{userTable}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["cospay", "status"],
+          "query": [
+            { "key": "orderNo", "value": "{{orderNo}}" },
+            { "key": "userId", "value": "{{uid}}" },
+            { "key": "userTable", "value": "{{userTable}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "14. 支付-模拟成功(新)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Token", "value": "{{token}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/cospay/mock/success?payOrderNo={{payOrderNo}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["cospay", "mock", "success"],
+          "query": [
+            { "key": "payOrderNo", "value": "{{payOrderNo}}" }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/springboot0le12" },
+    { "key": "username", "value": "test1" },
+    { "key": "password", "value": "test1" },
+    { "key": "token", "value": "sso95zab5ma2r012eosdkl3huv3xt092" },
+    { "key": "uid", "value": "1772331312076" },
+    { "key": "userTable", "value": "yonghu" },
+    { "key": "cartId1", "value": "0" },
+    { "key": "cartId2", "value": "0" },
+    { "key": "orderId", "value": "0" },
+    { "key": "orderNo", "value": "" },
+    { "key": "payOrderNo", "value": "" }
+  ]
+}
