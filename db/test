@@ -57,3 +57,7 @@ Description
 🎯七、回到本地同步
 git checkout main
 git pull
+
+第二次进行:
+git add .
+git commit -m "pay init"
