@@ -84,5 +84,3 @@ git pull
 git checkout pay
 git stash pop
 
-
-
