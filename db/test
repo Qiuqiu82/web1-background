@@ -61,3 +61,26 @@ git pull
 第二次进行:
 git add .
 git commit -m "pay init"
+
+git push -u origin pay
+远程查看
+
+git checkout main
+git pull
+
+✅本地有未提交的修改
+方案 1️提交当前改动
+git add db/test
+git commit -m "保存当前修改"
+git checkout main
+git pull
+
+方案 2️⃣ 暂存改动（stash）
+git stash
+然后切换：
+git checkout main
+git pull
+切换回 pay 分支继续工作：
+git checkout pay
+git stash pop
+
