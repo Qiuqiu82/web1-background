@@ -40,7 +40,7 @@ import com.utils.CommonUtil;
 import java.io.IOException;
 
 /**
- * 在线客服
+ * 在线cos服装定制咨询客服
  * 后端接口
  * @author 
  * @email 
