@@ -5,4 +5,4 @@ git checkout -b feature-pay
 
 开发完成..
 git add .
-git commit -m "完成支付轮询优化"
+git commit -m "pay init"
