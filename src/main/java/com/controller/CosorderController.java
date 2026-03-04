@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+//cos服装定制订单
 @RestController
 @RequestMapping("/cosorder")
 public class CosorderController {
