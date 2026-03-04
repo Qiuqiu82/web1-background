@@ -1,8 +1,59 @@
-sdafdwqda版本2
 
+完整步骤:
+main（稳定分支）
+   ↓
+创建 feature 分支
+   ↓
+本地开发 + commit
+   ↓
+push 到 GitHub
+   ↓
+GitHub 上 Create Pull Request
+   ↓
+Code Review（可选）
+   ↓
+Merge
+   ↓
+删除 feature 分支
+
+✅ 第一步：从 main 创建新分支
+在本地：
+git checkout main
+git pull
 git checkout -b feature-pay
-支付开发完成..
 
-开发完成..
+✅ 第二步：开发并提交
 git add .
-git commit -m "pay init"
+git commit -m "pay init" 中文会乱码
+
+✅ 第三步：推送到 GitHub
+git push -u origin feature-pay
+
+🎯三、GitHub 页面操作
+点击：
+✅ Compare & pull request
+Title
+比如：
+feat: 优化支付模块轮询逻辑
+
+Description
+写改了什么：
+1. 修改轮询间隔
+2. 修复支付状态刷新问题
+3. 优化提示信息
+然后点击：
+✅ Create pull request
+
+🎯 五、合并 Pull Request
+进入 PR 页面后：
+点击：
+✅ Merge pull request
+然后确认：
+✅ Confirm merge
+
+🎯 六、删除分支
+合并完成后页面会显示：点击Delete branch
+
+🎯七、回到本地同步
+git checkout main
+git pull
