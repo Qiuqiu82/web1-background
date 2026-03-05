@@ -33,6 +33,7 @@ public class CosorderController {
     private String role(HttpServletRequest req){ return req.getSession().getAttribute("role").toString(); }
     private String roleCode(HttpServletRequest req){ return CosRoleUtil.normalize(role(req), utable(req)); }
     private boolean isAdmin(HttpServletRequest req){ return CosRoleUtil.isAdmin(role(req), utable(req)); }
+    private boolean isDesigner(HttpServletRequest req){ return CosRoleUtil.DESIGNER.equals(roleCode(req)); }
 
     @RequestMapping("/page")
     public R page(HttpServletRequest request){
@@ -274,6 +275,162 @@ public class CosorderController {
         return R.ok().put("data", cosOrderFlowService.listStatusLogs(orderId));
     }
 
+
+    @GetMapping("/designer/pool")
+    public R designerPool(@RequestParam Map<String, Object> params, HttpServletRequest request){
+        if(!isDesigner(request)) {
+            return R.error(403, "无权限");
+        }
+
+        int page = parseInt(params.get("page"), 1);
+        int limit = parseInt(params.get("limit"), 10);
+        if(page < 1) page = 1;
+        if(limit < 1) limit = 10;
+        if(limit > 100) limit = 100;
+
+        StringBuilder where = new StringBuilder(" where pay_status=? and (designer_status is null or designer_status='' or designer_status=?) and (designer_id is null or designer_id=0) ");
+        List<Object> args = new ArrayList<>();
+        args.add("已支付");
+        args.add("待接单");
+
+        String orderNo = str(params.get("orderNo"));
+        if(StringUtils.isNotBlank(orderNo)) {
+            where.append(" and order_no like ? ");
+            args.add("%" + orderNo.trim() + "%");
+        }
+
+        List<Object> listArgs = new ArrayList<>(args);
+        listArgs.add(limit);
+        listArgs.add((page - 1) * limit);
+
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "select * from cosorder " + where + " order by id desc limit ? offset ?",
+                listArgs.toArray()
+        );
+
+        Long total = jdbcTemplate.queryForObject(
+                "select count(1) from cosorder " + where,
+                args.toArray(),
+                Long.class
+        );
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("list", list);
+        data.put("total", total == null ? 0 : total);
+        data.put("page", page);
+        data.put("limit", limit);
+
+        return R.ok().put("data", data);
+    }
+
+    @PostMapping("/designer/claim")
+    public R designerClaim(@RequestBody Map<String, Object> body, HttpServletRequest request){
+        if(!isDesigner(request)) {
+            return R.error(403, "无权限");
+        }
+
+        Long orderId = parseLong(body.get("orderId"));
+        if(orderId == null) {
+            return R.error(400, "orderId不能为空");
+        }
+
+        Long designerId = uid(request);
+        String designerTable = utable(request);
+
+        int updated = jdbcTemplate.update(
+                "update cosorder set designer_id=?, designer_table=?, designer_status=?, designer_take_time=now() " +
+                        "where id=? and pay_status=? and (designer_status is null or designer_status='' or designer_status=?) " +
+                        "and (designer_id is null or designer_id=0)",
+                designerId,
+                designerTable,
+                "已认领",
+                orderId,
+                "已支付",
+                "待接单"
+        );
+
+        if(updated > 0) {
+            return R.ok("认领成功");
+        }
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select id,pay_status,designer_id,designer_table,designer_status from cosorder where id=? limit 1",
+                orderId
+        );
+        if(rows.isEmpty()) {
+            return R.error(404, "订单不存在");
+        }
+
+        Map<String, Object> current = rows.get(0);
+        String payStatus = str(current.get("pay_status"));
+        if(!"已支付".equals(payStatus)) {
+            return R.error(400, "仅已支付订单可认领");
+        }
+
+        Long currentDesignerId = parseLong(current.get("designer_id"));
+        String currentDesignerTable = str(current.get("designer_table"));
+        String currentDesignerStatus = str(current.get("designer_status"));
+
+        if(currentDesignerId != null && currentDesignerId > 0) {
+            if(designerId.equals(currentDesignerId) && StringUtils.equalsIgnoreCase(designerTable, currentDesignerTable)) {
+                return R.ok("该订单已在我的订单中");
+            }
+            return R.error(409, "订单已被其他设计师认领");
+        }
+
+        if(StringUtils.isNotBlank(currentDesignerStatus) && !"待接单".equals(currentDesignerStatus)) {
+            return R.error(409, "订单状态不可认领");
+        }
+
+        return R.error(409, "订单已被认领，请刷新后重试");
+    }
+
+    @GetMapping("/designer/mine")
+    public R designerMine(@RequestParam Map<String, Object> params, HttpServletRequest request){
+        if(!isDesigner(request)) {
+            return R.error(403, "无权限");
+        }
+
+        int page = parseInt(params.get("page"), 1);
+        int limit = parseInt(params.get("limit"), 10);
+        if(page < 1) page = 1;
+        if(limit < 1) limit = 10;
+        if(limit > 100) limit = 100;
+
+        StringBuilder where = new StringBuilder(" where designer_id=? and designer_table=? ");
+        List<Object> args = new ArrayList<>();
+        args.add(uid(request));
+        args.add(utable(request));
+
+        String orderNo = str(params.get("orderNo"));
+        if(StringUtils.isNotBlank(orderNo)) {
+            where.append(" and order_no like ? ");
+            args.add("%" + orderNo.trim() + "%");
+        }
+
+        List<Object> listArgs = new ArrayList<>(args);
+        listArgs.add(limit);
+        listArgs.add((page - 1) * limit);
+
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "select * from cosorder " + where + " order by designer_take_time desc, id desc limit ? offset ?",
+                listArgs.toArray()
+        );
+
+        Long total = jdbcTemplate.queryForObject(
+                "select count(1) from cosorder " + where,
+                args.toArray(),
+                Long.class
+        );
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("list", list);
+        data.put("total", total == null ? 0 : total);
+        data.put("page", page);
+        data.put("limit", limit);
+
+        return R.ok().put("data", data);
+    }
     private static String normalizeDateBoundary(String raw, boolean endOfDay) {
         if(StringUtils.isBlank(raw)) {
             return null;
