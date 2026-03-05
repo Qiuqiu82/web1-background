@@ -84,3 +84,7 @@ git pull
 git checkout pay
 git stash pop
 
+撤销版本:
+git log --oneline -5
+git revert a5d0b38
+Vim：按 Esc → 输入 :wq → 回车

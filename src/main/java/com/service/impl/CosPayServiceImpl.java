@@ -1,7 +1,10 @@
 package com.service.impl;
+
 import com.entity.dto.CosPayCreateReq;
 import com.entity.dto.CosPayCreateResp;
+import com.service.CosOrderFlowService;
 import com.service.CosPayService;
+import com.utils.CosRoleUtil;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,18 +18,21 @@ import java.util.*;
  * @Description:
  * @Author: Qiuyan
  * @Date: 2026-03-04 14:20
- * @Version： 1.0
+ * @Version：1.0
+ * ceshi
  **/
 
 @Service
 public class CosPayServiceImpl implements CosPayService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final CosOrderFlowService cosOrderFlowService;
     private static final DateTimeFormatter ID_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
     private static final DateTimeFormatter NO_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-    public CosPayServiceImpl(JdbcTemplate jdbcTemplate) {
+    public CosPayServiceImpl(JdbcTemplate jdbcTemplate, CosOrderFlowService cosOrderFlowService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.cosOrderFlowService = cosOrderFlowService;
     }
 
     @Override
@@ -63,7 +69,7 @@ public class CosPayServiceImpl implements CosPayService {
 
         String payOrderNo = "PAY" + LocalDateTime.now().format(NO_FMT) + randomNum(6);
         LocalDateTime expireAt = LocalDateTime.now().plusMinutes(15);
-        String payUrl = "/#/cospay/mock?payOrderNo=" + payOrderNo; // 前端可据此生成二维码
+        String payUrl = "/#/cospay/mock?payOrderNo=" + payOrderNo;
 
         Long id = nextId();
         BigDecimal amount = new BigDecimal(String.valueOf(order.get("total_amount")));
@@ -108,7 +114,7 @@ public class CosPayServiceImpl implements CosPayService {
         if (payList.isEmpty()) throw new RuntimeException("支付单不存在");
         Map<String, Object> pay = payList.get(0);
         String payStatus = String.valueOf(pay.get("pay_status"));
-        if ("已支付".equals(payStatus)) return; // 幂等
+        if ("已支付".equals(payStatus)) return;
 
         String channelTradeNo = "MOCK" + LocalDateTime.now().format(ID_FMT);
 
@@ -117,14 +123,20 @@ public class CosPayServiceImpl implements CosPayService {
                         "where pay_order_no=? and pay_status='待支付'",
                 channelTradeNo, payOrderNo
         );
-        if (updated == 0) return; // 幂等
+        if (updated == 0) return;
 
         String orderNo = String.valueOf(pay.get("order_no"));
-        jdbcTemplate.update(
-                "update cosorder set pay_status='已支付', order_status='待生产', pay_time=now(), pay_channel_trade_no=? " +
-                        "where order_no=? and pay_status<>'已支付'",
-                channelTradeNo, orderNo
+        String flowErr = cosOrderFlowService.markPaySuccessByOrderNo(
+                orderNo,
+                payOrderNo,
+                channelTradeNo,
+                0L,
+                CosRoleUtil.ADMIN,
+                "模拟支付回调"
         );
+        if (flowErr != null && !flowErr.trim().isEmpty()) {
+            throw new RuntimeException(flowErr);
+        }
 
         jdbcTemplate.update(
                 "insert into cospay_notify_log(id,addtime,notify_id,pay_order_no,order_no,channel,verify_ok,payload,process_status) " +
@@ -142,7 +154,7 @@ public class CosPayServiceImpl implements CosPayService {
     }
 
     private static Long nextId() {
-        String s = LocalDateTime.now().format(ID_FMT) + randomNum(2); // 19位
+        String s = LocalDateTime.now().format(ID_FMT) + randomNum(2);
         return Long.parseLong(s);
     }
 }
