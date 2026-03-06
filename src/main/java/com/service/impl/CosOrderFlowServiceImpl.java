@@ -174,6 +174,138 @@ public class CosOrderFlowServiceImpl implements CosOrderFlowService {
         return null;
     }
 
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String designerStartProduction(Long orderId,
+                                          Long designerId,
+                                          String designerTable,
+                                          Long operatorId,
+                                          String operatorRole,
+                                          String remark) {
+        if (orderId == null) {
+            return "orderId不能为空";
+        }
+        if (designerId == null || StringUtils.isBlank(designerTable)) {
+            return "设计师信息缺失";
+        }
+
+        Map<String, Object> current = queryOrderById(orderId);
+        if (current == null) {
+            return "订单不存在";
+        }
+
+        String fromPay = str(current.get("pay_status"));
+        String fromOrder = str(current.get("order_status"));
+        Long currentDesignerId = longVal(current.get("designer_id"));
+        String currentDesignerTable = str(current.get("designer_table"));
+
+        if (!PAY_PAID.equals(fromPay)) {
+            return "仅已支付订单可开始制作";
+        }
+        if (!ORDER_PENDING_PRODUCE.equals(fromOrder)) {
+            return "仅待生产订单可开始制作";
+        }
+        if (currentDesignerId == null || !designerId.equals(currentDesignerId) || !StringUtils.equalsIgnoreCase(designerTable, currentDesignerTable)) {
+            return "仅认领该订单的设计师可操作";
+        }
+
+        int updated = jdbcTemplate.update(
+                "update cosorder set order_status=?, designer_status=? " +
+                        "where id=? and pay_status=? and order_status=? and designer_id=? and designer_table=?",
+                ORDER_PRODUCING,
+                "制作中",
+                orderId,
+                PAY_PAID,
+                ORDER_PENDING_PRODUCE,
+                designerId,
+                designerTable
+        );
+
+        if (updated == 0) {
+            return "订单状态已变更，请刷新重试";
+        }
+
+        insertLog(
+                orderId,
+                str(current.get("order_no")),
+                fromPay,
+                fromPay,
+                fromOrder,
+                ORDER_PRODUCING,
+                operatorId,
+                operatorRole,
+                StringUtils.defaultIfBlank(remark, "设计师开始制作")
+        );
+
+        return null;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String designerShip(Long orderId,
+                               Long designerId,
+                               String designerTable,
+                               Long operatorId,
+                               String operatorRole,
+                               String remark) {
+        if (orderId == null) {
+            return "orderId不能为空";
+        }
+        if (designerId == null || StringUtils.isBlank(designerTable)) {
+            return "设计师信息缺失";
+        }
+
+        Map<String, Object> current = queryOrderById(orderId);
+        if (current == null) {
+            return "订单不存在";
+        }
+
+        String fromPay = str(current.get("pay_status"));
+        String fromOrder = str(current.get("order_status"));
+        Long currentDesignerId = longVal(current.get("designer_id"));
+        String currentDesignerTable = str(current.get("designer_table"));
+
+        if (!PAY_PAID.equals(fromPay)) {
+            return "仅已支付订单可发货";
+        }
+        if (!ORDER_PRODUCING.equals(fromOrder)) {
+            return "仅生产中订单可发货";
+        }
+        if (currentDesignerId == null || !designerId.equals(currentDesignerId) || !StringUtils.equalsIgnoreCase(designerTable, currentDesignerTable)) {
+            return "仅认领该订单的设计师可操作";
+        }
+
+        int updated = jdbcTemplate.update(
+                "update cosorder set order_status=?, designer_status=? " +
+                        "where id=? and pay_status=? and order_status=? and designer_id=? and designer_table=?",
+                ORDER_SHIPPED,
+                "已发货",
+                orderId,
+                PAY_PAID,
+                ORDER_PRODUCING,
+                designerId,
+                designerTable
+        );
+
+        if (updated == 0) {
+            return "订单状态已变更，请刷新重试";
+        }
+
+        insertLog(
+                orderId,
+                str(current.get("order_no")),
+                fromPay,
+                fromPay,
+                fromOrder,
+                ORDER_SHIPPED,
+                operatorId,
+                operatorRole,
+                StringUtils.defaultIfBlank(remark, "设计师发货")
+        );
+
+        return null;
+    }
     @Override
     @Transactional(rollbackFor = Exception.class)
     public String userCancel(Long orderId,

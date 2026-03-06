@@ -19,6 +19,20 @@ public interface CosOrderFlowService {
                            String operatorRole,
                            String remark);
 
+    String designerStartProduction(Long orderId,
+                                   Long designerId,
+                                   String designerTable,
+                                   Long operatorId,
+                                   String operatorRole,
+                                   String remark);
+
+    String designerShip(Long orderId,
+                        Long designerId,
+                        String designerTable,
+                        Long operatorId,
+                        String operatorRole,
+                        String remark);
+
     String userCancel(Long orderId,
                       Long userId,
                       String userTable,

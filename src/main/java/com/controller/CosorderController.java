@@ -385,6 +385,62 @@ public class CosorderController {
         return R.error(409, "订单已被认领，请刷新后重试");
     }
 
+
+    @PostMapping("/designer/start")
+    public R designerStart(@RequestBody Map<String, Object> body, HttpServletRequest request){
+        if(!isDesigner(request)) {
+            return R.error(403, "无权限");
+        }
+
+        Long orderId = parseLong(body.get("orderId"));
+        if(orderId == null) {
+            return R.error(400, "orderId不能为空");
+        }
+
+        String remark = str(body.get("remark"));
+        String err = cosOrderFlowService.designerStartProduction(
+                orderId,
+                uid(request),
+                utable(request),
+                uid(request),
+                roleCode(request),
+                remark
+        );
+
+        if(StringUtils.isNotBlank(err)) {
+            return R.error(400, err);
+        }
+
+        return R.ok("开始制作成功");
+    }
+
+    @PostMapping("/designer/ship")
+    public R designerShip(@RequestBody Map<String, Object> body, HttpServletRequest request){
+        if(!isDesigner(request)) {
+            return R.error(403, "无权限");
+        }
+
+        Long orderId = parseLong(body.get("orderId"));
+        if(orderId == null) {
+            return R.error(400, "orderId不能为空");
+        }
+
+        String remark = str(body.get("remark"));
+        String err = cosOrderFlowService.designerShip(
+                orderId,
+                uid(request),
+                utable(request),
+                uid(request),
+                roleCode(request),
+                remark
+        );
+
+        if(StringUtils.isNotBlank(err)) {
+            return R.error(400, err);
+        }
+
+        return R.ok("发货成功");
+    }
     @GetMapping("/designer/mine")
     public R designerMine(@RequestParam Map<String, Object> params, HttpServletRequest request){
         if(!isDesigner(request)) {
