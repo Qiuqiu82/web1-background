@@ -40,6 +40,13 @@ public interface CosOrderFlowService {
                       String operatorRole,
                       String remark);
 
+    String userConfirmReceipt(Long orderId,
+                              Long userId,
+                              String userTable,
+                              Long operatorId,
+                              String operatorRole,
+                              String remark);
+
     List<Map<String, Object>> listStatusLogs(Long orderId);
 
     Map<String, Object> queryOrderById(Long orderId);

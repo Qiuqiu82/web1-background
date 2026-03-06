@@ -363,6 +363,66 @@ public class CosOrderFlowServiceImpl implements CosOrderFlowService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String userConfirmReceipt(Long orderId,
+                                     Long userId,
+                                     String userTable,
+                                     Long operatorId,
+                                     String operatorRole,
+                                     String remark) {
+        if (orderId == null) {
+            return "orderId不能为空";
+        }
+        if (userId == null || StringUtils.isBlank(userTable)) {
+            return "用户信息缺失";
+        }
+
+        Map<String, Object> current = queryOrderByOwner(orderId, userId, userTable);
+        if (current == null) {
+            return "订单不存在或无权限";
+        }
+
+        String fromPay = str(current.get("pay_status"));
+        String fromOrder = str(current.get("order_status"));
+
+        if (!PAY_PAID.equals(fromPay)) {
+            return "仅已支付订单可确认收货";
+        }
+        if (!ORDER_SHIPPED.equals(fromOrder)) {
+            return "仅已发货订单可确认收货";
+        }
+
+        int updated = jdbcTemplate.update(
+                "update cosorder set order_status=?, designer_status=? " +
+                        "where id=? and user_id=? and user_table=? and pay_status=? and order_status=?",
+                ORDER_FINISHED,
+                "已完成",
+                orderId,
+                userId,
+                userTable,
+                PAY_PAID,
+                ORDER_SHIPPED
+        );
+
+        if (updated == 0) {
+            return "订单状态已变更，请刷新重试";
+        }
+
+        insertLog(
+                orderId,
+                str(current.get("order_no")),
+                fromPay,
+                fromPay,
+                fromOrder,
+                ORDER_FINISHED,
+                operatorId,
+                operatorRole,
+                StringUtils.defaultIfBlank(remark, "用户确认收货")
+        );
+
+        return null;
+    }
+    @Override
     public List<Map<String, Object>> listStatusLogs(Long orderId) {
         if (orderId == null) {
             return new ArrayList<>();

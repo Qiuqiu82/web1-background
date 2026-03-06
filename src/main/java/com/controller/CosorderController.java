@@ -150,6 +150,22 @@ public class CosorderController {
         return R.ok("订单已取消");
     }
 
+    
+    @PostMapping("/confirm-receipt/{id}")
+    public R confirmReceipt(@PathVariable("id") Long id, HttpServletRequest request){
+        String err = cosOrderFlowService.userConfirmReceipt(
+                id,
+                uid(request),
+                utable(request),
+                uid(request),
+                roleCode(request),
+                "用户确认收货"
+        );
+        if (StringUtils.isNotBlank(err)) {
+            return R.error(400, err);
+        }
+        return R.ok("确认收货成功");
+    }
     @GetMapping("/admin/page")
     public R adminPage(@RequestParam Map<String, Object> params, HttpServletRequest request){
         if(!isAdmin(request)) {
