@@ -24,11 +24,15 @@ public class CoscartEntity implements Serializable {
     private BigDecimal amount;
     private Integer checked;
 
+    private Long customDraftId;
+    private String customSummary;
+    private String customSnapshotJson;
+    private Integer customSnapshotVersion;
+
     @JsonFormat(locale = "zh", timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat
     private Date addtime;
 
-    // getters/setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getUserId() { return userId; }
@@ -51,6 +55,14 @@ public class CoscartEntity implements Serializable {
     public void setAmount(BigDecimal amount) { this.amount = amount; }
     public Integer getChecked() { return checked; }
     public void setChecked(Integer checked) { this.checked = checked; }
+    public Long getCustomDraftId() { return customDraftId; }
+    public void setCustomDraftId(Long customDraftId) { this.customDraftId = customDraftId; }
+    public String getCustomSummary() { return customSummary; }
+    public void setCustomSummary(String customSummary) { this.customSummary = customSummary; }
+    public String getCustomSnapshotJson() { return customSnapshotJson; }
+    public void setCustomSnapshotJson(String customSnapshotJson) { this.customSnapshotJson = customSnapshotJson; }
+    public Integer getCustomSnapshotVersion() { return customSnapshotVersion; }
+    public void setCustomSnapshotVersion(Integer customSnapshotVersion) { this.customSnapshotVersion = customSnapshotVersion; }
     public Date getAddtime() { return addtime; }
     public void setAddtime(Date addtime) { this.addtime = addtime; }
 }

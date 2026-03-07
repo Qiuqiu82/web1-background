@@ -6,13 +6,14 @@ import com.entity.RemaicosfuEntity;
 import com.service.CoscartService;
 import com.service.RemaicosfuService;
 import com.utils.R;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.util.*;
-//cos服装定制用户购物车
+
 @RestController
 @RequestMapping("/coscart")
 public class CoscartController {
@@ -36,26 +37,40 @@ public class CoscartController {
     @RequestMapping("/add")
     public R add(@RequestBody Map<String,Object> body, HttpServletRequest request){
         Long productId = Long.valueOf(body.get("productId").toString());
-        Integer quantity = body.get("quantity")==null?1:Integer.valueOf(body.get("quantity").toString());
-        String specs = body.get("specs")==null?"":body.get("specs").toString();
+        Integer quantity = body.get("quantity")==null ? 1 : Integer.valueOf(body.get("quantity").toString());
+        String specs = body.get("specs")==null ? "" : body.get("specs").toString();
 
-        RemaicosfuEntity p = remaicosfuService.selectById(productId);
-        if(p==null) return R.error("商品不存在");
+        RemaicosfuEntity product = remaicosfuService.selectById(productId);
+        if(product==null) return R.error("商品不存在");
 
-        CoscartEntity e = new CoscartEntity();
-        e.setId(new Date().getTime() + (long)(Math.random()*1000));
-        e.setUserId(uid(request));
-        e.setUserTable(utable(request));
-        e.setProductId(productId);
-        e.setProductName(p.getFuzhuangmingcheng());
-        e.setProductCover(p.getHuawentuan()==null?"":p.getHuawentuan().split(",")[0]);
-        e.setSpecs(specs);
-        e.setQuantity(quantity);
-        BigDecimal price = new BigDecimal(p.getFuzhuangjiage()==null?0:p.getFuzhuangjiage());
-        e.setPrice(price);
-        e.setAmount(price.multiply(new BigDecimal(quantity)));
-        e.setChecked(1);
-        coscartService.insert(e);
+        Long customDraftId = parseLong(body.get("customDraftId"));
+        String customSummary = str(body.get("customSummary"));
+        String customSnapshotJson = str(body.get("customSnapshotJson"));
+        Integer customSnapshotVersion = parseInt(body.get("customSnapshotVersion"), 1);
+
+        if(StringUtils.isBlank(customSummary)) {
+            customSummary = specs;
+        }
+
+        CoscartEntity cart = new CoscartEntity();
+        cart.setId(new Date().getTime() + (long)(Math.random()*1000));
+        cart.setUserId(uid(request));
+        cart.setUserTable(utable(request));
+        cart.setProductId(productId);
+        cart.setProductName(product.getFuzhuangmingcheng());
+        cart.setProductCover(product.getHuawentuan()==null?"":product.getHuawentuan().split(",")[0]);
+        cart.setSpecs(specs);
+        cart.setQuantity(quantity);
+        BigDecimal price = new BigDecimal(product.getFuzhuangjiage()==null?0:product.getFuzhuangjiage());
+        cart.setPrice(price);
+        cart.setAmount(price.multiply(new BigDecimal(quantity)));
+        cart.setChecked(1);
+        cart.setCustomDraftId(customDraftId);
+        cart.setCustomSummary(customSummary);
+        cart.setCustomSnapshotJson(customSnapshotJson);
+        cart.setCustomSnapshotVersion(customSnapshotVersion);
+
+        coscartService.insert(cart);
         return R.ok("加入购物车成功");
     }
 
@@ -67,6 +82,12 @@ public class CoscartController {
 
         if(form.getQuantity()!=null && form.getQuantity()>0) db.setQuantity(form.getQuantity());
         if(form.getChecked()!=null) db.setChecked(form.getChecked());
+        if(form.getSpecs()!=null) db.setSpecs(form.getSpecs());
+        if(form.getCustomDraftId()!=null) db.setCustomDraftId(form.getCustomDraftId());
+        if(form.getCustomSummary()!=null) db.setCustomSummary(form.getCustomSummary());
+        if(form.getCustomSnapshotJson()!=null) db.setCustomSnapshotJson(form.getCustomSnapshotJson());
+        if(form.getCustomSnapshotVersion()!=null) db.setCustomSnapshotVersion(form.getCustomSnapshotVersion());
+
         db.setAmount(db.getPrice().multiply(new BigDecimal(db.getQuantity())));
         coscartService.updateById(db);
         return R.ok();
@@ -76,5 +97,29 @@ public class CoscartController {
     public R delete(@RequestBody Long[] ids){
         coscartService.deleteBatchIds(Arrays.asList(ids));
         return R.ok();
+    }
+
+    private static String str(Object value){
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static Long parseLong(Object value){
+        if(value == null) return null;
+        if(value instanceof Number) return ((Number)value).longValue();
+        try {
+            return Long.valueOf(String.valueOf(value));
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private static Integer parseInt(Object value, int defaultValue){
+        if(value == null) return defaultValue;
+        if(value instanceof Number) return ((Number)value).intValue();
+        try {
+            return Integer.valueOf(String.valueOf(value));
+        } catch (Exception ignore) {
+            return defaultValue;
+        }
     }
 }
