@@ -9,6 +9,7 @@ import com.service.TokenService;
 import com.utils.MPUtil;
 import com.utils.PageUtils;
 import com.utils.R;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,6 +29,15 @@ public class ShejishiController {
 
     @Autowired
     private TokenService tokenService;
+
+    private boolean isDesigner(HttpServletRequest request) {
+        Object tableName = request.getSession().getAttribute("tableName");
+        return tableName != null && "shejishi".equalsIgnoreCase(String.valueOf(tableName));
+    }
+
+    private String trimValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
 
     @IgnoreAuth
     @RequestMapping(value = "/login")
@@ -61,6 +71,34 @@ public class ShejishiController {
         Long id = (Long) request.getSession().getAttribute("userId");
         ShejishiEntity user = shejishiService.selectById(id);
         return R.ok().put("data", user);
+    }
+
+    @PostMapping("/update-my-profile")
+    public R updateMyProfile(@RequestBody Map<String, Object> body, HttpServletRequest request) {
+        if (!isDesigner(request)) {
+            return R.error(403, "\u4ec5\u8bbe\u8ba1\u5e08\u53ef\u4fee\u6539\u81ea\u5df1\u7684\u8d44\u6599");
+        }
+        Long id = (Long) request.getSession().getAttribute("userId");
+        if (id == null) {
+            return R.error(401, "\u8bf7\u5148\u767b\u5f55");
+        }
+        ShejishiEntity user = shejishiService.selectById(id);
+        if (user == null) {
+            return R.error(404, "\u8bbe\u8ba1\u5e08\u4e0d\u5b58\u5728");
+        }
+
+        String name = trimValue(body.get("shejishixingming"));
+        if (StringUtils.isBlank(name)) {
+            return R.error(400, "\u8bbe\u8ba1\u5e08\u59d3\u540d\u4e0d\u80fd\u4e3a\u7a7a");
+        }
+
+        user.setShejishixingming(name);
+        user.setTouxiang(trimValue(body.get("touxiang")));
+        user.setLianxifangshi(trimValue(body.get("lianxifangshi")));
+        user.setZhuanchang(trimValue(body.get("zhuanchang")));
+        user.setJianjie(trimValue(body.get("jianjie")));
+        shejishiService.updateById(user);
+        return R.ok("\u8d44\u6599\u5df2\u66f4\u65b0").put("data", user);
     }
 
     @IgnoreAuth

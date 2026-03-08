@@ -51,6 +51,8 @@ public class CosorderController {
     private static final String MSG_CANCEL_SUCCESS = "订单取消成功";
     private static final String MSG_CONFIRM_RECEIPT_SUCCESS = "确认收货成功";
     private static final String MSG_ADMIN_TRANSITION_SUCCESS = "订单状态流转成功";
+    private static final String MSG_COMM_FORBIDDEN = "仅用户或设计师可访问该接口";
+    private static final String MSG_COMM_CONTENT_REQUIRED = "消息内容不能为空";
     @Autowired private CosorderService cosorderService;
     @Autowired private CoscartService coscartService;
     @Autowired private CosOrderFlowService cosOrderFlowService;
@@ -62,6 +64,7 @@ public class CosorderController {
     private String roleCode(HttpServletRequest req){ return CosRoleUtil.normalize(role(req), utable(req)); }
     private boolean isAdmin(HttpServletRequest req){ return CosRoleUtil.isAdmin(role(req), utable(req)); }
     private boolean isDesigner(HttpServletRequest req){ return CosRoleUtil.DESIGNER.equals(roleCode(req)); }
+    private boolean isUser(HttpServletRequest req){ return CosRoleUtil.USER.equals(roleCode(req)); }
 
     @RequestMapping("/page")
     public R page(HttpServletRequest request){
@@ -403,7 +406,7 @@ public class CosorderController {
         }
 
         Long designerId = uid(request);
-        String designerTable = utable(request);
+        String designerTable = normalizeDesignerTable(utable(request));
 
         int updated = jdbcTemplate.update(
                 "update cosorder set designer_id=?, designer_table=?, designer_status=?, designer_take_time=now() " +
@@ -440,7 +443,7 @@ public class CosorderController {
         String currentDesignerStatus = str(current.get("designer_status"));
 
         if(currentDesignerId != null && currentDesignerId > 0) {
-            if(designerId.equals(currentDesignerId) && StringUtils.equalsIgnoreCase(designerTable, currentDesignerTable)) {
+            if(designerId.equals(currentDesignerId) && designerTableMatches(designerTable, currentDesignerTable)) {
                 return R.ok(MSG_CLAIM_SUCCESS_SELF);
             }
             return R.error(409, MSG_ORDER_ALREADY_CLAIMED_OTHER);
@@ -504,6 +507,7 @@ public class CosorderController {
             return R.error(400, err);
         }
 
+        appendDeliveryRecordForShip(orderId, request, remark);
         return R.ok(MSG_SHIP_SUCCESS);
     }
     @GetMapping("/designer/mine")
@@ -519,15 +523,10 @@ public class CosorderController {
         if(limit > 100) limit = 100;
 
         Long designerId = uid(request);
-        String sessionTable = str(request.getSession().getAttribute("tableName"));
-        String designerTable = StringUtils.isBlank(sessionTable) ? "shejishi" : sessionTable.trim();
 
-        StringBuilder where = new StringBuilder(
-                " where designer_id=? and (designer_table=? or designer_table is null or designer_table='' or designer_table='shejishi') "
-        );
+        StringBuilder where = new StringBuilder(" where designer_id=? ");
         List<Object> args = new ArrayList<>();
         args.add(designerId);
-        args.add(designerTable);
 
         String orderNo = str(params.get("orderNo"));
         if(StringUtils.isNotBlank(orderNo)) {
@@ -557,6 +556,202 @@ public class CosorderController {
         data.put("limit", limit);
 
         return R.ok().put("data", data);
+    }
+    @GetMapping("/comm/session/page")
+    public R commSessionPage(@RequestParam Map<String, Object> params, HttpServletRequest request){
+        if(!isDesigner(request) && !isUser(request)) {
+            return R.error(403, MSG_COMM_FORBIDDEN);
+        }
+
+        int page = parseInt(params.get("page"), 1);
+        int limit = parseInt(params.get("limit"), 10);
+        if(page < 1) page = 1;
+        if(limit < 1) limit = 10;
+        if(limit > 100) limit = 100;
+
+        String keyword = str(params.get("keyword"));
+        StringBuilder where = new StringBuilder(" where 1=1 ");
+        List<Object> args = new ArrayList<>();
+
+        if(isDesigner(request)) {
+            where.append(" and o.designer_id=? ");
+            args.add(uid(request));
+        } else {
+            where.append(" and o.user_id=? and o.user_table=? ");
+            args.add(uid(request));
+            args.add(utable(request));
+        }
+
+        if(StringUtils.isNotBlank(keyword)) {
+            where.append(" and o.order_no like ? ");
+            args.add("%" + keyword.trim() + "%");
+        }
+
+        List<Object> listArgs = new ArrayList<>(args);
+        listArgs.add(limit);
+        listArgs.add((page - 1) * limit);
+
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "select o.id as orderId,o.order_no as orderNo,o.user_id as userId,o.user_table as userTable," +
+                        "o.designer_id as designerId,o.designer_table as designerTable,o.pay_status as payStatus," +
+                        "o.order_status as orderStatus,o.designer_status as designerStatus,o.addtime as orderTime," +
+                        "o.designer_take_time as designerTakeTime,m.content as lastMessage,m.message_type as lastMessageType," +
+                        "m.sender_role as lastSenderRole,m.sender_name as lastSenderName,m.addtime as lastMessageTime " +
+                        "from cosorder o left join cos_order_message m on m.id=(" +
+                        "select cm.id from cos_order_message cm where cm.order_id=o.id and cm.deleted=0 order by cm.id desc limit 1" +
+                        ") " + where + " order by ifnull(m.addtime, ifnull(o.designer_take_time, o.addtime)) desc, o.id desc limit ? offset ?",
+                listArgs.toArray()
+        );
+
+        Long total = jdbcTemplate.queryForObject(
+                "select count(1) from cosorder o " + where,
+                args.toArray(),
+                Long.class
+        );
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("list", list);
+        data.put("total", total == null ? 0 : total);
+        data.put("page", page);
+        data.put("limit", limit);
+        return R.ok().put("data", data);
+    }
+
+    @GetMapping("/comm/message/page")
+    public R commMessagePage(@RequestParam Map<String, Object> params, HttpServletRequest request){
+        if(!isDesigner(request) && !isUser(request)) {
+            return R.error(403, MSG_COMM_FORBIDDEN);
+        }
+
+        Long orderId = parseLong(params.get("orderId"));
+        if(orderId == null) {
+            return R.error(400, MSG_ORDER_ID_REQUIRED);
+        }
+
+        Map<String, Object> order = queryOrderForComm(orderId);
+        if(order == null) {
+            return R.error(404, MSG_ORDER_NOT_FOUND);
+        }
+        if(!canAccessOrderComm(order, request)) {
+            return R.error(403, MSG_ORDER_FORBIDDEN);
+        }
+
+        int page = parseInt(params.get("page"), 1);
+        int limit = parseInt(params.get("limit"), 30);
+        if(page < 1) page = 1;
+        if(limit < 1) limit = 30;
+        if(limit > 200) limit = 200;
+
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "select id,addtime,order_id as orderId,order_no as orderNo,user_id as userId,user_table as userTable," +
+                        "designer_id as designerId,designer_table as designerTable,sender_role as senderRole," +
+                        "sender_id as senderId,sender_name as senderName,message_type as messageType,content " +
+                        "from cos_order_message where order_id=? and deleted=0 order by id asc limit ? offset ?",
+                orderId,
+                limit,
+                (page - 1) * limit
+        );
+
+        Long total = jdbcTemplate.queryForObject(
+                "select count(1) from cos_order_message where order_id=? and deleted=0",
+                new Object[]{orderId},
+                Long.class
+        );
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("list", list);
+        data.put("total", total == null ? 0 : total);
+        data.put("page", page);
+        data.put("limit", limit);
+        data.put("order", order);
+        return R.ok().put("data", data);
+    }
+
+    @PostMapping("/comm/send")
+    public R commSend(@RequestBody Map<String, Object> body, HttpServletRequest request){
+        if(!isDesigner(request) && !isUser(request)) {
+            return R.error(403, MSG_COMM_FORBIDDEN);
+        }
+
+        Long orderId = parseLong(body.get("orderId"));
+        if(orderId == null) {
+            return R.error(400, MSG_ORDER_ID_REQUIRED);
+        }
+
+        String content = str(body.get("content"));
+        if(StringUtils.isBlank(content)) {
+            return R.error(400, MSG_COMM_CONTENT_REQUIRED);
+        }
+
+        Map<String, Object> order = queryOrderForComm(orderId);
+        if(order == null) {
+            return R.error(404, MSG_ORDER_NOT_FOUND);
+        }
+        if(!canAccessOrderComm(order, request)) {
+            return R.error(403, MSG_ORDER_FORBIDDEN);
+        }
+
+        String senderRole = roleCode(request);
+        insertOrderMessage(
+                order,
+                uid(request),
+                senderRole,
+                sessionDisplayName(request, senderRole),
+                normalizeMessageType(str(body.get("messageType"))),
+                content.trim()
+        );
+
+        return R.ok("发送成功");
+    }
+
+    @GetMapping("/comm/delivery")
+    public R commDelivery(@RequestParam("orderId") Long orderId, HttpServletRequest request){
+        if(!isDesigner(request) && !isUser(request)) {
+            return R.error(403, MSG_COMM_FORBIDDEN);
+        }
+        if(orderId == null) {
+            return R.error(400, MSG_ORDER_ID_REQUIRED);
+        }
+
+        Map<String, Object> order = queryOrderForComm(orderId);
+        if(order == null) {
+            return R.error(404, MSG_ORDER_NOT_FOUND);
+        }
+        if(!canAccessOrderComm(order, request)) {
+            return R.error(403, MSG_ORDER_FORBIDDEN);
+        }
+
+        List<Map<String, Object>> timeline = new ArrayList<>();
+        List<Map<String, Object>> logs = cosOrderFlowService.listStatusLogs(orderId);
+        for(Map<String, Object> log : logs) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("time", firstNonBlank(str(log.get("addtime")), str(log.get("addTime"))));
+            row.put("type", "STATUS");
+            row.put("title", buildDeliveryTitle(log));
+            row.put("content", firstNonBlank(str(log.get("remark")), "-"));
+            row.put("operatorRole", firstNonBlank(str(log.get("operator_role")), str(log.get("operatorRole")), "-"));
+            row.put("operatorName", firstNonBlank(str(log.get("operator_id")), str(log.get("operatorId")), "-"));
+            timeline.add(row);
+        }
+
+        List<Map<String, Object>> deliveryRows = jdbcTemplate.queryForList(
+                "select id,addtime,sender_role as senderRole,sender_name as senderName,content " +
+                        "from cos_order_message where order_id=? and deleted=0 and message_type='DELIVERY' order by id asc",
+                orderId
+        );
+        for(Map<String, Object> msg : deliveryRows) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("time", firstNonBlank(str(msg.get("addtime")), str(msg.get("addTime"))));
+            row.put("type", "DELIVERY");
+            row.put("title", "交付记录");
+            row.put("content", firstNonBlank(str(msg.get("content")), "-"));
+            row.put("operatorRole", firstNonBlank(str(msg.get("senderRole")), "-"));
+            row.put("operatorName", firstNonBlank(str(msg.get("senderName")), "-"));
+            timeline.add(row);
+        }
+
+        timeline.sort(Comparator.comparing(o -> StringUtils.defaultString(str(o.get("time")))));
+        return R.ok().put("data", timeline);
     }
     private static String normalizeDateBoundary(String raw, boolean endOfDay) {
         if(StringUtils.isBlank(raw)) {
@@ -772,6 +967,144 @@ public class CosorderController {
         }
         return null;
     }
+    private void appendDeliveryRecordForShip(Long orderId, HttpServletRequest request, String remark) {
+        Map<String, Object> order = queryOrderForComm(orderId);
+        if(order == null) {
+            return;
+        }
+        insertOrderMessage(
+                order,
+                uid(request),
+                roleCode(request),
+                sessionDisplayName(request, roleCode(request)),
+                "DELIVERY",
+                StringUtils.defaultIfBlank(remark, "设计师发货")
+        );
+    }
+
+    private Map<String, Object> queryOrderForComm(Long orderId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select id,order_no,user_id,user_table,designer_id,designer_table,pay_status,order_status,designer_status,addtime " +
+                        "from cosorder where id=? limit 1",
+                orderId
+        );
+        if(rows.isEmpty()) {
+            return null;
+        }
+        return rows.get(0);
+    }
+
+    private boolean canAccessOrderComm(Map<String, Object> order, HttpServletRequest request) {
+        if(order == null) {
+            return false;
+        }
+        if(isDesigner(request)) {
+            Long currentDesignerId = uid(request);
+            Long orderDesignerId = parseLong(order.get("designer_id"));
+            return orderDesignerId != null && currentDesignerId.equals(orderDesignerId);
+        }
+        if(isUser(request)) {
+            Long currentUserId = uid(request);
+            String currentTable = utable(request);
+            Long orderUserId = parseLong(order.get("user_id"));
+            String orderUserTable = str(order.get("user_table"));
+            return orderUserId != null
+                    && currentUserId.equals(orderUserId)
+                    && StringUtils.equalsIgnoreCase(StringUtils.defaultString(currentTable).trim(), StringUtils.defaultString(orderUserTable).trim());
+        }
+        return false;
+    }
+
+    private void insertOrderMessage(Map<String, Object> order,
+                                    Long senderId,
+                                    String senderRole,
+                                    String senderName,
+                                    String messageType,
+                                    String content) {
+        if(order == null || StringUtils.isBlank(content)) {
+            return;
+        }
+
+        jdbcTemplate.update(
+                "insert into cos_order_message(" +
+                        "id,addtime,order_id,order_no,user_id,user_table,designer_id,designer_table," +
+                        "sender_role,sender_id,sender_name,message_type,content,deleted) " +
+                        "values(?,now(),?,?,?,?,?,?,?,?,?,?,?,0)",
+                nextMessageId(),
+                parseLong(order.get("id")),
+                str(order.get("order_no")),
+                parseLong(order.get("user_id")),
+                str(order.get("user_table")),
+                parseLong(order.get("designer_id")),
+                normalizeDesignerTable(str(order.get("designer_table"))),
+                StringUtils.defaultString(senderRole),
+                senderId,
+                StringUtils.defaultIfBlank(senderName, "-"),
+                normalizeMessageType(messageType),
+                content
+        );
+    }
+
+    private static String normalizeMessageType(String messageType) {
+        String safe = StringUtils.defaultString(messageType).trim().toUpperCase(Locale.ROOT);
+        if("DELIVERY".equals(safe)) {
+            return "DELIVERY";
+        }
+        return "TEXT";
+    }
+
+    private static String normalizeDesignerTable(String rawTable) {
+        String safe = StringUtils.defaultString(rawTable).trim();
+        if(StringUtils.isBlank(safe)) {
+            return "shejishi";
+        }
+        return safe.toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean designerTableMatches(String left, String right) {
+        String l = normalizeDesignerTable(left);
+        String r = normalizeDesignerTable(right);
+        if(StringUtils.equalsIgnoreCase(l, r)) {
+            return true;
+        }
+        return "shejishi".equalsIgnoreCase(l) || "shejishi".equalsIgnoreCase(r);
+    }
+
+    private static String sessionDisplayName(HttpServletRequest request, String senderRole) {
+        String username = str(request.getSession().getAttribute("username"));
+        if(StringUtils.isNotBlank(username)) {
+            return username;
+        }
+        Long userId = parseLong(request.getSession().getAttribute("userId"));
+        if(userId == null) {
+            return StringUtils.defaultString(senderRole);
+        }
+        if(CosRoleUtil.DESIGNER.equals(senderRole)) {
+            return "设计师#" + userId;
+        }
+        if(CosRoleUtil.USER.equals(senderRole)) {
+            return "用户#" + userId;
+        }
+        return senderRole + "#" + userId;
+    }
+
+    private static Long nextMessageId() {
+        long now = System.currentTimeMillis() * 1000;
+        int random = new Random().nextInt(1000);
+        return now + random;
+    }
+
+    private static String buildDeliveryTitle(Map<String, Object> log) {
+        String fromOrder = firstNonBlank(str(log.get("from_order_status")), str(log.get("fromOrderStatus")));
+        String toOrder = firstNonBlank(str(log.get("to_order_status")), str(log.get("toOrderStatus")));
+        if(StringUtils.isNotBlank(fromOrder) || StringUtils.isNotBlank(toOrder)) {
+            return "状态变更：" + StringUtils.defaultIfBlank(fromOrder, "-") + " -> " + StringUtils.defaultIfBlank(toOrder, "-");
+        }
+        String fromPay = firstNonBlank(str(log.get("from_pay_status")), str(log.get("fromPayStatus")));
+        String toPay = firstNonBlank(str(log.get("to_pay_status")), str(log.get("toPayStatus")));
+        return "支付变更：" + StringUtils.defaultIfBlank(fromPay, "-") + " -> " + StringUtils.defaultIfBlank(toPay, "-");
+    }
+
     private static Long parseLong(Object value){
         if(value == null) return null;
         if(value instanceof Number) return ((Number)value).longValue();

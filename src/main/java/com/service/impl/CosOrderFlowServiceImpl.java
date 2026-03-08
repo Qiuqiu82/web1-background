@@ -186,9 +186,10 @@ public class CosOrderFlowServiceImpl implements CosOrderFlowService {
         if (orderId == null) {
             return "orderId不能为空";
         }
-        if (designerId == null || StringUtils.isBlank(designerTable)) {
+        if (designerId == null) {
             return "设计师信息缺失";
         }
+        String normalizedDesignerTable = normalizeDesignerTable(designerTable);
 
         Map<String, Object> current = queryOrderById(orderId);
         if (current == null) {
@@ -206,20 +207,20 @@ public class CosOrderFlowServiceImpl implements CosOrderFlowService {
         if (!ORDER_PENDING_PRODUCE.equals(fromOrder)) {
             return "仅待生产订单可开始制作";
         }
-        if (currentDesignerId == null || !designerId.equals(currentDesignerId) || !StringUtils.equalsIgnoreCase(designerTable, currentDesignerTable)) {
+        if (currentDesignerId == null || !designerId.equals(currentDesignerId) || !designerTableMatches(normalizedDesignerTable, currentDesignerTable)) {
             return "仅认领该订单的设计师可操作";
         }
 
         int updated = jdbcTemplate.update(
-                "update cosorder set order_status=?, designer_status=? " +
-                        "where id=? and pay_status=? and order_status=? and designer_id=? and designer_table=?",
+                "update cosorder set order_status=?, designer_status=?, designer_table=? " +
+                        "where id=? and pay_status=? and order_status=? and designer_id=?",
                 ORDER_PRODUCING,
                 "制作中",
+                normalizedDesignerTable,
                 orderId,
                 PAY_PAID,
                 ORDER_PENDING_PRODUCE,
-                designerId,
-                designerTable
+                designerId
         );
 
         if (updated == 0) {
@@ -252,9 +253,10 @@ public class CosOrderFlowServiceImpl implements CosOrderFlowService {
         if (orderId == null) {
             return "orderId不能为空";
         }
-        if (designerId == null || StringUtils.isBlank(designerTable)) {
+        if (designerId == null) {
             return "设计师信息缺失";
         }
+        String normalizedDesignerTable = normalizeDesignerTable(designerTable);
 
         Map<String, Object> current = queryOrderById(orderId);
         if (current == null) {
@@ -272,20 +274,20 @@ public class CosOrderFlowServiceImpl implements CosOrderFlowService {
         if (!ORDER_PRODUCING.equals(fromOrder)) {
             return "仅生产中订单可发货";
         }
-        if (currentDesignerId == null || !designerId.equals(currentDesignerId) || !StringUtils.equalsIgnoreCase(designerTable, currentDesignerTable)) {
+        if (currentDesignerId == null || !designerId.equals(currentDesignerId) || !designerTableMatches(normalizedDesignerTable, currentDesignerTable)) {
             return "仅认领该订单的设计师可操作";
         }
 
         int updated = jdbcTemplate.update(
-                "update cosorder set order_status=?, designer_status=? " +
-                        "where id=? and pay_status=? and order_status=? and designer_id=? and designer_table=?",
+                "update cosorder set order_status=?, designer_status=?, designer_table=? " +
+                        "where id=? and pay_status=? and order_status=? and designer_id=?",
                 ORDER_SHIPPED,
                 "已发货",
+                normalizedDesignerTable,
                 orderId,
                 PAY_PAID,
                 ORDER_PRODUCING,
-                designerId,
-                designerTable
+                designerId
         );
 
         if (updated == 0) {
@@ -507,6 +509,22 @@ public class CosOrderFlowServiceImpl implements CosOrderFlowService {
 
     private static String str(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+    private static String normalizeDesignerTable(String designerTable) {
+        String safe = StringUtils.defaultString(designerTable).trim();
+        if (StringUtils.isBlank(safe)) {
+            return "shejishi";
+        }
+        return safe.toLowerCase();
+    }
+
+    private static boolean designerTableMatches(String requestTable, String currentTable) {
+        String left = normalizeDesignerTable(requestTable);
+        String right = normalizeDesignerTable(currentTable);
+        if (StringUtils.equalsIgnoreCase(left, right)) {
+            return true;
+        }
+        return "shejishi".equalsIgnoreCase(left) || "shejishi".equalsIgnoreCase(right);
     }
 
     private static Long longVal(Object value) {
