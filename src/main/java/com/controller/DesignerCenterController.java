@@ -27,6 +27,11 @@ public class DesignerCenterController {
     private static final String ORDER_STATUS_SHIPPED_EN = "SHIPPED";
     private static final String ORDER_STATUS_DONE_EN = "DONE";
     private static final String ORDER_STATUS_CANCEL_EN = "CANCELLED";
+    private static final String ORDER_STATUS_PENDING_PRODUCE = "待生产";
+    private static final String ORDER_STATUS_PRODUCING = "生产中";
+    private static final String ORDER_STATUS_PENDING_PRODUCE_EN = "PENDING_PRODUCTION";
+    private static final String ORDER_STATUS_PRODUCING_EN = "PRODUCING";
+    private static final String DESIGNER_STATUS_WAIT_CLAIM = "待接单";
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -460,6 +465,140 @@ public class DesignerCenterController {
             );
         }
         return R.ok("\u6848\u4f8b\u8ba2\u5355\u5df2\u53d6\u6d88\u5173\u8054");
+    }
+
+    @GetMapping("/workbench/summary")
+    public R workbenchSummary(HttpServletRequest request) {
+        if (!isDesigner(request)) {
+            return R.error(403, "仅设计师可查看工作台统计");
+        }
+        Long designerId = uid(request);
+        if (designerId == null) {
+            return R.error(401, "请先登录");
+        }
+        String designerTable = designerTable(request);
+
+        Long poolCount = jdbcTemplate.queryForObject(
+                "select count(1) from cosorder where (pay_status=? or pay_status=?) " +
+                        "and (designer_status is null or designer_status='' or designer_status=?) " +
+                        "and (designer_id is null or designer_id=0)",
+                new Object[]{PAY_STATUS_CN, PAY_STATUS_EN, DESIGNER_STATUS_WAIT_CLAIM},
+                Long.class
+        );
+
+        Map<String, Object> summaryRow = jdbcTemplate.queryForMap(
+                "select " +
+                        "coalesce(sum(case when (pay_status=? or pay_status=?) and (order_status is null or order_status not in (?,?)) then total_amount else 0 end),0) as totalOrderAmount, " +
+                        "coalesce(sum(case when (pay_status=? or pay_status=?) and order_status in (?,?) then total_amount else 0 end),0) as completedOrderAmount, " +
+                        "coalesce(sum(case when order_status in (?,?,?,?) then 1 else 0 end),0) as inProgressCount, " +
+                        "coalesce(sum(case when order_status in (?,?) then 1 else 0 end),0) as toShipCount " +
+                        "from cosorder where designer_id=? and (designer_table=? or designer_table is null or designer_table='')",
+                PAY_STATUS_CN,
+                PAY_STATUS_EN,
+                ORDER_STATUS_CANCEL,
+                ORDER_STATUS_CANCEL_EN,
+                PAY_STATUS_CN,
+                PAY_STATUS_EN,
+                ORDER_STATUS_DONE,
+                ORDER_STATUS_DONE_EN,
+                ORDER_STATUS_PENDING_PRODUCE,
+                ORDER_STATUS_PENDING_PRODUCE_EN,
+                ORDER_STATUS_PRODUCING,
+                ORDER_STATUS_PRODUCING_EN,
+                ORDER_STATUS_PRODUCING,
+                ORDER_STATUS_PRODUCING_EN,
+                designerId,
+                designerTable
+        );
+
+        LocalDate today = LocalDate.now();
+        String todayStart = today.format(DateTimeFormatter.ISO_DATE) + " 00:00:00";
+        String todayEnd = today.format(DateTimeFormatter.ISO_DATE) + " 23:59:59";
+        Long todayClaimCount = jdbcTemplate.queryForObject(
+                "select count(1) from cosorder where designer_id=? and (designer_table=? or designer_table is null or designer_table='') " +
+                        "and designer_take_time>=? and designer_take_time<=?",
+                new Object[]{designerId, designerTable, todayStart, todayEnd},
+                Long.class
+        );
+
+        List<Map<String, Object>> rawDistribution = jdbcTemplate.queryForList(
+                "select case " +
+                        "when order_status in (?,?) then ? " +
+                        "when order_status in (?,?) then ? " +
+                        "when order_status in (?,?) then ? " +
+                        "when order_status in (?,?) then ? " +
+                        "when order_status in (?,?) then ? " +
+                        "else order_status end as statusLabel, count(1) as total " +
+                        "from cosorder where designer_id=? and (designer_table=? or designer_table is null or designer_table='') " +
+                        "group by statusLabel",
+                ORDER_STATUS_PENDING_PRODUCE,
+                ORDER_STATUS_PENDING_PRODUCE_EN,
+                ORDER_STATUS_PENDING_PRODUCE,
+                ORDER_STATUS_PRODUCING,
+                ORDER_STATUS_PRODUCING_EN,
+                ORDER_STATUS_PRODUCING,
+                ORDER_STATUS_SHIPPED,
+                ORDER_STATUS_SHIPPED_EN,
+                ORDER_STATUS_SHIPPED,
+                ORDER_STATUS_DONE,
+                ORDER_STATUS_DONE_EN,
+                ORDER_STATUS_DONE,
+                ORDER_STATUS_CANCEL,
+                ORDER_STATUS_CANCEL_EN,
+                ORDER_STATUS_CANCEL,
+                designerId,
+                designerTable
+        );
+        Map<String, Integer> distributionMap = new HashMap<>();
+        for (Map<String, Object> row : rawDistribution) {
+            distributionMap.put(trimValue(row.get("statusLabel")), parseInt(row.get("total"), 0));
+        }
+        List<Map<String, Object>> statusDistribution = new ArrayList<>();
+        for (String label : Arrays.asList(ORDER_STATUS_PENDING_PRODUCE, ORDER_STATUS_PRODUCING, ORDER_STATUS_SHIPPED, ORDER_STATUS_DONE, ORDER_STATUS_CANCEL)) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("label", label);
+            item.put("count", distributionMap.getOrDefault(label, 0));
+            statusDistribution.add(item);
+        }
+
+        LocalDate trendStartDate = today.minusDays(6);
+        String trendStart = trendStartDate.format(DateTimeFormatter.ISO_DATE) + " 00:00:00";
+        List<Map<String, Object>> rawTrend = jdbcTemplate.queryForList(
+                "select date_format(designer_take_time,'%Y-%m-%d') as statDate, count(1) as claimCount " +
+                        "from cosorder where designer_id=? and (designer_table=? or designer_table is null or designer_table='') " +
+                        "and designer_take_time>=? and designer_take_time<=? " +
+                        "group by date_format(designer_take_time,'%Y-%m-%d') order by statDate asc",
+                designerId,
+                designerTable,
+                trendStart,
+                todayEnd
+        );
+        Map<String, Integer> trendMap = new HashMap<>();
+        for (Map<String, Object> row : rawTrend) {
+            trendMap.put(trimValue(row.get("statDate")), parseInt(row.get("claimCount"), 0));
+        }
+        List<Map<String, Object>> claimTrend = new ArrayList<>();
+        LocalDate cursor = trendStartDate;
+        while (!cursor.isAfter(today)) {
+            String date = cursor.format(DateTimeFormatter.ISO_DATE);
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("date", date);
+            item.put("label", cursor.getMonthValue() + "/" + cursor.getDayOfMonth());
+            item.put("count", trendMap.getOrDefault(date, 0));
+            claimTrend.add(item);
+            cursor = cursor.plusDays(1);
+        }
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("poolCount", poolCount == null ? 0 : poolCount);
+        data.put("inProgressCount", parseInt(summaryRow.get("inProgressCount"), 0));
+        data.put("toShipCount", parseInt(summaryRow.get("toShipCount"), 0));
+        data.put("todayClaimCount", todayClaimCount == null ? 0 : todayClaimCount);
+        data.put("totalOrderAmount", toDecimal(summaryRow.get("totalOrderAmount")));
+        data.put("completedOrderAmount", toDecimal(summaryRow.get("completedOrderAmount")));
+        data.put("statusDistribution", statusDistribution);
+        data.put("claimTrend", claimTrend);
+        return R.ok().put("data", data);
     }
 
     @GetMapping("/revenue/summary")

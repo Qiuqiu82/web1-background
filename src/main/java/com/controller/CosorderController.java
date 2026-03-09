@@ -168,7 +168,7 @@ public class CosorderController {
         o.setBodyProfileSnapshotJson(bodySnapshot.isEmpty() ? null : JSON.toJSONString(bodySnapshot));
 
         cosorderService.insert(o);
-        cosOrderFlowService.recordOrderCreated(o, uid(request), roleCode(request), "用户提交订单");
+        cosOrderFlowService.recordOrderCreated(o, uid(request), roleCode(request), "鐢ㄦ埛鎻愪氦璁㈠崟");
         coscartService.deleteBatchIds(cartIds);
 
         return R.ok().put("data", o);
@@ -185,7 +185,7 @@ public class CosorderController {
                 "LEGACY" + System.currentTimeMillis(),
                 uid(request),
                 roleCode(request),
-                "用户发起支付"
+                "鐢ㄦ埛鍙戣捣鏀粯"
         );
         if (StringUtils.isNotBlank(err)) {
             return R.error(400, err);
@@ -205,7 +205,7 @@ public class CosorderController {
                 utable(request),
                 uid(request),
                 roleCode(request),
-                "用户取消订单"
+                "鐢ㄦ埛鍙栨秷璁㈠崟"
         );
         if (StringUtils.isNotBlank(err)) {
             return R.error(400, err);
@@ -220,7 +220,7 @@ public class CosorderController {
                 utable(request),
                 uid(request),
                 roleCode(request),
-                "用户确认收货"
+                "鐢ㄦ埛纭鏀惰揣"
         );
         if (StringUtils.isNotBlank(err)) {
             return R.error(400, err);
@@ -523,11 +523,12 @@ public class CosorderController {
         if(limit > 100) limit = 100;
 
         Long designerId = uid(request);
+        String designerTable = normalizeDesignerTable(utable(request));
 
-        StringBuilder where = new StringBuilder(" where designer_id=? ");
+        StringBuilder where = new StringBuilder(" where designer_id=? and (designer_table is null or designer_table='' or designer_table=?) ");
         List<Object> args = new ArrayList<>();
         args.add(designerId);
-
+        args.add(designerTable);
         String orderNo = str(params.get("orderNo"));
         if(StringUtils.isNotBlank(orderNo)) {
             where.append(" and order_no like ? ");
@@ -743,7 +744,7 @@ public class CosorderController {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("time", firstNonBlank(str(msg.get("addtime")), str(msg.get("addTime"))));
             row.put("type", "DELIVERY");
-            row.put("title", "交付记录");
+            row.put("title", "浜や粯璁板綍");
             row.put("content", firstNonBlank(str(msg.get("content")), "-"));
             row.put("operatorRole", firstNonBlank(str(msg.get("senderRole")), "-"));
             row.put("operatorName", firstNonBlank(str(msg.get("senderName")), "-"));
