@@ -1,30 +1,30 @@
-# Tomcat
+﻿# Tomcat
 server:
-    tomcat:
-        uri-encoding: UTF-8
-    port: 8080
-    servlet:
-        context-path: /springboot0le12
+  tomcat:
+    uri-encoding: UTF-8
+  port: 8080
+  servlet:
+    context-path: /springboot0le12
 
 
 spring:
-    datasource:
-        driverClassName: com.mysql.cj.jdbc.Driver
-        url: jdbc:mysql://127.0.0.1:3307/springboot0le12?useUnicode=true&characterEncoding=utf-8&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=GMT%2B8
-        username: root
-        password: root
+  datasource:
+    driverClassName: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3307/springboot0le12?useUnicode=true&characterEncoding=utf-8&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=GMT%2B8
+    username: root
+    password: root
 
-#        driverClassName: com.microsoft.sqlserver.jdbc.SQLServerDriver
-#        url: jdbc:sqlserver://127.0.0.1:1433;DatabaseName=springboot0le12
-#        username: sa
-#        password: root
+  #        driverClassName: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  #        url: jdbc:sqlserver://127.0.0.1:1433;DatabaseName=springboot0le12
+  #        username: sa
+  #        password: root
 
-    servlet:
-      multipart:
-        max-file-size: 300MB
-        max-request-size: 300MB
-    resources:
-      static-locations: classpath:static/,file:static/
+  servlet:
+    multipart:
+      max-file-size: 300MB
+      max-request-size: 300MB
+  resources:
+    static-locations: classpath:static/,file:static/
 
 #mybatis
 mybatis-plus:
@@ -50,4 +50,11 @@ mybatis-plus:
     cache-enabled: false
     call-setters-on-nulls: true
     #springboot 项目mybatis plus 设置 jdbcTypeForNull (oracle数据库需配置JdbcType.NULL, 默认是Other)
-    jdbc-type-for-null: 'null' 
+    jdbc-type-for-null: 'null'
+
+ai:
+  rag:
+    base-url: http://127.0.0.1:8000
+    connect-timeout-ms: 5000
+    read-timeout-ms: 30000
+
