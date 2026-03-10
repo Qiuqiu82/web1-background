@@ -30,10 +30,10 @@ public class AiChatController {
     @Value("${ai.rag.base-url:http://127.0.0.1:8000}")
     private String ragBaseUrl;
 
-    @Value("${ai.rag.connect-timeout-ms:5000}")
+    @Value("${ai.rag.connect-timeout-ms:8000}")
     private int connectTimeoutMs;
 
-    @Value("${ai.rag.read-timeout-ms:30000}")
+    @Value("${ai.rag.read-timeout-ms:120000}")
     private int readTimeoutMs;
 
     @PostMapping("/send")
