@@ -1,4 +1,4 @@
-﻿# Tomcat
+# Tomcat
 server:
   tomcat:
     uri-encoding: UTF-8
@@ -58,4 +58,8 @@ ai:
     connect-timeout-ms: 8000
     read-timeout-ms: 120000
 
-
+catvton:
+  base-url: http://127.0.0.1:16006
+  connect-timeout-ms: 8000
+  read-timeout-ms: 15000
+  result-sync-dir: upload/tryon
