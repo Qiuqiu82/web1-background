@@ -1,13 +1,13 @@
-# springboot0le12
+# 裁次元-动漫服装定制平台
 
-一个基于 Spring Boot + MyBatis Plus + Vue 的服装定制系统后端项目，支持普通用户、管理员、设计相关能力，并联动 AI RAG 服务和虚拟试穿服务。
+本项目是基于 Spring Boot + MyBatis Plus + Vue 的服装定制系统后端项目，支持普通用户、管理员、设计相关能力，并联动 AI RAG 服务和虚拟试穿服务。
 
 ## 项目组成
 
-- 后端：`F:\springboot\06-144套-23-SpringBoot501-644\springboot0le12`
-- 前端：`F:\springboot\front\web01`
-- RAG 服务：`F:\01code\cursorProgram\DeerTCM-AI---`
-- 虚拟试穿服务：`F:\01code\cursorProgram\CatVTON`
+- 后端：Spring Boot 2.2.2
+- 前端：Vue2
+- RAG 服务：FastAPI + LlamaIndex、React+TypeScript
+- 虚拟试穿服务：Stable Diffusion Inpainting、PyTorch、FastAPI
 
 ## 技术栈
 
@@ -17,7 +17,7 @@
 - Apache Shiro
 - Vue 2
 - AI RAG
-- CatVTON 虚拟试穿
+- PyTorch
 
 ## 功能概览
 
@@ -25,7 +25,7 @@
 - 服装浏览、收藏、评论、预约/订单管理
 - 管理员后台管理
 - AI 智能问答 / RAG 能力
-- 虚拟试穿能力
+- 虚拟试穿（图片生成）能力
 
 ## 运行环境
 
