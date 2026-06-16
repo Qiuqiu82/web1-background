@@ -47,7 +47,7 @@
 
 ### 2. 启动后端
 
-用 IntelliJ IDEA 打开后端项目 `springboot0le12`，运行主类：
+用 IntelliJ IDEA 打开后端java项目，运行主类：
 
 - `src/main/java/com/SpringbootSchemaApplication.java`
 
@@ -82,12 +82,11 @@ python api_server.py --host 0.0.0.0 --port 6006
 ### 后端
 
 - `server.port`: `8080`
-- `context-path`: `/springboot0le12`
 
 访问示例：
 
 ```text
-http://localhost:8080/springboot0le12
+http://localhost:8080
 ```
 
 > 如果你本地已经把后端改成 `8081`，请以你自己的 `application.yml` 为准。
@@ -113,7 +112,7 @@ http://localhost:8080/springboot0le12
 
 主要配置如下：
 
-- 数据库地址：`jdbc:mysql://127.0.0.1:3307/springboot0le12`
+- 数据库地址：`jdbc:mysql://127.0.0.1:3307`
 - 用户名：`root`
 - 密码：`root`
 
