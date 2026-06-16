@@ -168,7 +168,7 @@ public class CosorderController {
         o.setBodyProfileSnapshotJson(bodySnapshot.isEmpty() ? null : JSON.toJSONString(bodySnapshot));
 
         cosorderService.insert(o);
-        cosOrderFlowService.recordOrderCreated(o, uid(request), roleCode(request), "鐢ㄦ埛鎻愪氦璁㈠崟");
+        cosOrderFlowService.recordOrderCreated(o, uid(request), roleCode(request), "订单创建");
         coscartService.deleteBatchIds(cartIds);
 
         return R.ok().put("data", o);

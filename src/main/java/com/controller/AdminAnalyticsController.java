@@ -20,7 +20,8 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/admin/analytics")
-public class AdminAnalyticsController {
+public class
+AdminAnalyticsController {
 
     private static final String PAY_PAID = "已支付";
     private static final String PAY_PAID_EN = "PAID";
