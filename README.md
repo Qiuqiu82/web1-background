@@ -2,6 +2,10 @@
 
 本项目是基于 Spring Boot + MyBatis Plus + Vue 的服装定制系统后端项目，支持普通用户、管理员、设计相关能力，并联动 AI RAG 服务和虚拟试穿服务。
 
+# 虚拟试穿展示
+https://github.com/user-attachments/assets/13acd06c-27fa-4eac-84a2-8fa11212bd18
+# RAG生成展示
+https://github.com/user-attachments/assets/335afe6a-407c-4e39-9d50-7291288c2d99
 ## 项目组成
 
 - 后端：Spring Boot 2.2.2
